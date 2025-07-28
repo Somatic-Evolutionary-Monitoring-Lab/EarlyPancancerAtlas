@@ -603,5 +603,3 @@ legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
 ggsave(paste0(outputs.folder, date, "_legend.png"), width = 9, height = 1, dpi = 300)
 
 
-## Annotate driver events?
-
