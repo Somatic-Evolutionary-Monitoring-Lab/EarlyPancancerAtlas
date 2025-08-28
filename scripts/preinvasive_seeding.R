@@ -25,6 +25,7 @@ library(dplyr)
 library(ggplot2) 
 library(cowplot)
 library(RColorBrewer) 
+library(patchwork)
 
 #############################################
 #### Make a folder for this analysis run ####
@@ -63,7 +64,7 @@ source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/
 ##########################
 
 use.original.clonality <- TRUE
-ccf.buffer.toUse <- 10
+ccf.buffer.toUse <- 0.1
 save.output <- TRUE
 
 ##################################################
@@ -401,7 +402,7 @@ cloneInfo.list <- lapply(names(trees), function(pat) {
         }
         # make sure the sum of the remaining seeing clones (parents across branches) sum to > 90 
         # or that any of the seeding clones are defined as clonal in the met region
-        if (sum(ccf.values[seedingClones.toCount]) > 100 - ccf.buffer | any(clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal")) {
+        if (sum(ccf.values[seedingClones.toCount]) > 1 - ccf.buffer | any(clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal")) {
           return(seedingClones)
         } else {
           # if not, identify additional potential seeding clones from shared clones
@@ -439,7 +440,7 @@ cloneInfo.list <- lapply(names(trees), function(pat) {
             seedingClones.toCount <- unique(seedingClones.toCount)
             # break out of the loop if the total ccf of the selected clones exceeds 90
             # or if one of the new clones is clonal at this region
-            if (sum(ccf.values[seedingClones.toCount]) > 100 - ccf.buffer | any(clonality[which(rownames(clonality) %in% tmp.seedingClones), met] == "clonal")) {
+            if (sum(ccf.values[seedingClones.toCount]) > 1 - ccf.buffer | any(clonality[which(rownames(clonality) %in% tmp.seedingClones), met] == "clonal")) {
               break
             } else {
               # remove processed clones from shared clones and continue testing others
@@ -576,15 +577,15 @@ tree_plots <- lapply(tree_plots, function(p) {
 
 wrap_plots(tree_plots, ncol = 6) 
 
-ggsave(paste0(outputs.folder, date, "_forest.png"), width = 19, height = 20, dpi = 300)
+ggsave(paste0(outputs.folder, date, "_forest_wide.png"), width = 19, height = 20, dpi = 300)
 
 # create legend with dummy data
 legend_data <- data.frame(
   x = 1:5,
   y = 1,
-  type = c("Preinvasive unique", "Cancer unique", "Shared", "Seeding clone", "Non-seeding clone"),
+  type = c("Preinvasive unique", "Cancer unique", "Shared", "Initating clone", "Non-initiating clone"),
   fill = c("#D55E00", "#009E73", "#D0DDE2", "white", "white"),
-  stroke = c(1, 1, 1, 2, 1),  # outline width
+  stroke = c(1, 1, 1, 3, 1),  # outline width
   shape = 21
 )
 
@@ -600,8 +601,6 @@ legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
   ylim(0.8, 1.5) +
   theme(legend.position = "none")
 
-ggsave(paste0(outputs.folder, date, "_legend.png"), width = 9, height = 1, dpi = 300)
+ggsave(paste0(outputs.folder, date, "_legend.png"), width = 12, height = 1, dpi = 300)
 
-
-## Annotate driver events?
 

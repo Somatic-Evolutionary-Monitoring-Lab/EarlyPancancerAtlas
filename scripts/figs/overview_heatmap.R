@@ -242,15 +242,28 @@ mutation_category_labels <- c(
 
 ## Get data for bar plots
 
+# pivot num samples -- rework this code to have post copy number QC numbers (refer to trees)
+#num_samples_long <- cohort %>%
+#  select(patient_tumour, patient_order, plt_cohort_cancer, num_tumour_samples, num_preinv_samples) %>%
+#  pivot_longer(cols = starts_with("num_"),
+#               names_to = "sample_type",
+#               values_to = "count") %>%
+#  mutate(sample_type = recode(sample_type,
+#                              num_tumour_samples = "Tumour",
+#                              num_preinv_samples = "Pre-invasive"))
+
 # pivot num samples
-num_samples_long <- cohort %>%
-  select(patient_tumour, patient_order, plt_cohort_cancer, num_tumour_samples, num_preinv_samples) %>%
-  pivot_longer(cols = starts_with("num_"),
+num_samples_long <- mutations_labelled %>%
+  select(patient_id, patient_tumour, pre_sample_count, cancer_sample_count) %>%
+  group_by(patient_tumour) %>%
+  slice(1) %>%
+  left_join(cohort %>% select(patient_tumour, plt_cohort_cancer, patient_order), by = "patient_tumour") %>%
+  pivot_longer(cols = ends_with("_count"),
                names_to = "sample_type",
                values_to = "count") %>%
   mutate(sample_type = recode(sample_type,
-                              num_tumour_samples = "Tumour",
-                              num_preinv_samples = "Pre-invasive"))
+                              cancer_sample_count = "Tumour",
+                              pre_sample_count = "Pre-invasive"))
 
 # pivot mutation category data
 mutation_long <- mutation_proportions %>%
@@ -316,8 +329,8 @@ tile_gender <- ggplot(tile_data %>% filter(attribute == "Gender")) +
 
 tile_seeding <- ggplot(tile_data %>% filter(attribute == "Seeding Pattern")) +
   geom_tile(aes(x = factor(patient_order), y = "", fill = value), color = "black") +
-  scale_fill_manual(name = "Seeding Pattern", values = seeding_pattern_colours) +
-  labs(y = "Seeding Pattern") +
+  scale_fill_manual(name = "Initiation Pattern", values = seeding_pattern_colours) +
+  labs(y = "Initiation Pattern") +
   facet_wrap(~plt_cohort_cancer, scales = "free_x", nrow = 1) +
   theme_minimal() +
   blank_theme
@@ -403,7 +416,17 @@ legends <- plot_grid(legend_num_samples,
                      axis = "t",
                      rel_widths = c(0.9, 0.8, 0.8, 0.8, 1.2, 1.2, 1))
 
-
+legends <- plot_grid(legend_num_samples,
+                     legend_stage,
+                     legend_smoking,
+                     legend_gender,
+                     legend_seeding,
+                     legend_mutation,
+                     legend_copy_number,
+                     ncol = 1,
+                     align = "v",
+                     rel_widths = c(0.7, 1.3, 1, 0.1, 1.2, 1.4, 0.5))
+ggsave(paste0(outputs.folder, date, "_overview_legend_vertical.png"), width = 2, height = 12, dpi = 300)
 
 
 plot_and_leegend <- plot_grid(final_plot, legends, ncol = 1, align = "v", rel_heights = c(2, 0.6))
