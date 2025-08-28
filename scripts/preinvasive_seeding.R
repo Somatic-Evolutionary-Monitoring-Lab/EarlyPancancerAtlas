@@ -25,6 +25,7 @@ library(dplyr)
 library(ggplot2) 
 library(cowplot)
 library(RColorBrewer) 
+library(patchwork)
 
 #############################################
 #### Make a folder for this analysis run ####
@@ -63,7 +64,7 @@ source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/
 ##########################
 
 use.original.clonality <- TRUE
-ccf.buffer.toUse <- 10
+ccf.buffer.toUse <- 0.1
 save.output <- TRUE
 
 ##################################################
@@ -220,275 +221,36 @@ if (save.output) {
   saveRDS(seeding_table, file = paste0(outputs.folder, date, "_seeding_clonality.rds"))
 }
 
-  ##########################################################################################
-  ############## Work out which preinvasive clones seeded the primary tumour ###############
-  ##########################################################################################
+##########################################################################################
+############## Work out which preinvasive clones seeded the primary tumour ###############
+##########################################################################################
+
+cloneInfo.list <- lapply(names(trees), function(pat) {
+  print(pat)
   
-  cloneInfo.list <- lapply(names(trees), function(pat) {
-    print(pat)
-    
-    treeStructure <- get.treeStructure(trees[[pat]]$graph_pyclone$default_tree, trees[[pat]]$graph_pyclone$trunk)
-    
-    if (use.original.clonality) {
-      clonality <- trees[[pat]]$clonality_out$clonality_table_original
-    } else {
-      clonality <- trees[[pat]]$clonality_out$clonality_table_corrected
-    }
-    
-    allPatientClones <- rownames(clonality)
-    regions <- colnames(clonality)
-    preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "preinvasive") %>% pull(sample_name_hash))
-    cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "cancer") %>% pull(sample_name_hash))
-    
-    # Cases with no preinvasive regions
-    if (length(preinvasive.regions) == 0) {
-      print(paste0(pat, ": No preinvasive clones in the tree, skipping seeding clone estimation."))
-      clonality$TumourClonality <- get.tumLevel.clonality(clonality, cancer.regions)
-      tmp.return <- list(seedingClones = NA,
-                         allTreeClones = treeStructure$allTreeClones,
-                         clonalClones  = rownames(clonality[clonality$TumourClonality == "clonal", , drop = FALSE]), 
-                         sharedClones  = NA,
-                         preinvasiveClones = NA,
-                         tumourClones     = rownames(clonality))
-      df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
-      df$treeClones    <- df$clones %in% tmp.return$allTreeClones
-      df$seedingClones <- df$clones %in% tmp.return$seedingClones
-      df$clonalClones  <- df$clones %in% tmp.return$clonalClones
-      df$sharedClones  <- df$clones %in% tmp.return$sharedClones
-      df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
-      df$tumourClones     <- df$clones %in% tmp.return$tumourClones
-      return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = NA, seedingRegions = NA, seedingRegionInfo = NA)))
-      }
-    
-    # Cases with no cancer regions
-    if (length(cancer.regions) == 0){
-      print(paste0(pat, ": No tumour clones in the tree, skipping seeding clone estimation."))
-      clonality$PreinvasiveClonality <- get.tumLevel.clonality(clonality, preinvasive.regions)
-      tmp.return <- list(seedingClones = NA,
-                         allTreeClones = treeStructure$allTreeClones,
-                         clonalClones  = rownames(clonality[clonality$PreinvasiveClonality == "clonal", , drop = FALSE]), 
-                         sharedClones  = NA,
-                         preinvasiveClones = rownames(clonality),
-                         tumourClones     = NA)
-      df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
-      df$treeClones    <- df$clones %in% tmp.return$allTreeClones
-      df$seedingClones <- df$clones %in% tmp.return$seedingClones
-      df$clonalClones  <- df$clones %in% tmp.return$clonalClones
-      df$sharedClones  <- df$clones %in% tmp.return$sharedClones
-      df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
-      df$tumourClones     <- df$clones %in% tmp.return$tumourClones
-      return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = NA, seedingRegions = NA, seedingRegionInfo = NA)))
-      
-    }
-    
-    # Cases with at least one preinvasive and tumour sample, work out seeding clonlity
-    clonality$PreinvasiveClonality <- get.tumLevel.clonality(clonality, preinvasive.regions)
+  treeStructure <- get.treeStructure(trees[[pat]]$graph_pyclone$default_tree, trees[[pat]]$graph_pyclone$trunk)
+  
+  if (use.original.clonality) {
+    clonality <- trees[[pat]]$clonality_out$clonality_table_original
+  } else {
+    clonality <- trees[[pat]]$clonality_out$clonality_table_corrected
+  }
+  
+  allPatientClones <- rownames(clonality)
+  regions <- colnames(clonality)
+  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "preinvasive") %>% pull(sample_name_hash))
+  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "cancer") %>% pull(sample_name_hash))
+  
+  # Cases with no preinvasive regions
+  if (length(preinvasive.regions) == 0) {
+    print(paste0(pat, ": No preinvasive clones in the tree, skipping seeding clone estimation."))
     clonality$TumourClonality <- get.tumLevel.clonality(clonality, cancer.regions)
-    clonality.full <- clonality
-    ### keep all clones - even non-tree to be able to classify more mutations 
-    # clonality <- subset(clonality, rownames(clonality) %in% treeStructure$allTreeClones)
-    if (nrow(clonality) == 0) {
-      print(paste0(pat, ": No clones left after removing clones not in tree."))
-      return(NULL)
-    }
-    
-    allSharedClones <- intersect(rownames(subset(clonality, clonality$PreinvasiveClonality != "absent")),
-                                 rownames(subset(clonality, clonality$TumourClonality != "absent")))
-    
-    # Cases with no shared clones
-    if (length(allSharedClones) == 0) {
-      print(paste0(pat, ": No shared clones."))
-      return(NULL)
-    }
-    
-    # Cases with one shared clone
-    if (length(allSharedClones) == 1) {
-      if (clonality[which(rownames(clonality) == allSharedClones), "PreinvasiveClonality"] == "clonal" & clonality[which(rownames(clonality) == allSharedClones), "TumourClonality"] == "clonal") {
-        print(paste0(pat, ": Only clonal cluster left."))
-        individualSeedingClones <- setNames(rep(allSharedClones, length(cancer.regions)), cancer.regions)
-        seedingRegions <- list(preinvasive.regions)
-        names(seedingRegions) <- allSharedClones
-        
-        seedingRegionsDF <- data.frame(Patient = pat, PreinvasiveRegion = preinvasive.regions, Initiating = ifelse(cancer.regions %in% unique(unlist(seedingRegions)), TRUE, FALSE), Carcinoma = "", stringsAsFactors = FALSE)
-        seedingRegionsDF$Carcinoma <- sapply(seedingRegionsDF$PreinvasiveRegion, function(reg) {
-          tmp.indx <- grep(reg, seedingRegions)
-          if (length(tmp.indx) == 0) return("")
-          
-          tmp.seeding <- names(seedingRegions[tmp.indx])
-          
-          tmp.out <- sapply(tmp.seeding, function(x) {
-            names(individualSeedingClones[grep(x, individualSeedingClones)])
-          })
-          tmp.out <- paste0(unique(unlist(tmp.out)), collapse = ";")
-          return(tmp.out)
-        })
-        
-        tmp.return <- list(seedingClones = allSharedClones,
-                           allTreeClones = treeStructure$allTreeClones,
-                           clonalClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "clonal" & clonality.full$TumourClonality == "clonal")), 
-                           sharedClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality %in% c("subclonal", "clonal"))), 
-                           preinvasiveClones = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality == "absent")), 
-                           tumourClones     = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "absent" & clonality.full$TumourClonality %in% c("subclonal", "clonal"))))
-        df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
-        df$treeClones    <- df$clones %in% tmp.return$allTreeClones
-        df$seedingClones <- df$clones %in% tmp.return$seedingClones
-        df$clonalClones  <- df$clones %in% tmp.return$clonalClones
-        df$sharedClones  <- df$clones %in% tmp.return$sharedClones
-        df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
-        df$tumourClones     <- df$clones %in% tmp.return$tumourClones
-        return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = individualSeedingClones, seedingRegions = seedingRegions, seedingRegionInfo = seedingRegionsDF)))
-      } else {
-        print(paste0(pat, ": Only clone left is not clonal in both primary and met."))
-        return(NULL)
-      }
-    }
-    
-    treeBranches <- strsplit(treeStructure$structure, split = ":")
-    
-    individualSeedingClones <- lapply(cancer.regions, function(met) {
-      sharedClones  <- subset(allSharedClones, allSharedClones %in% rownames(subset(clonality, clonality[, met] != "absent")))
-      seedingClones <- unique(get.seedingClones(clonality, sharedClones, treeBranches, prim = "PreinvasiveClonality", met = met))
-      
-      if (length(seedingClones) == 0) {
-        print(paste0(pat, ": No seeding clones found for region"))
-        return(NULL)
-      }
-      
-      if (length(seedingClones) == 1) {
-        if (clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal") {
-          return(seedingClones)
-        } else {
-          tmp.sharedClones <- subset(sharedClones, !sharedClones %in% seedingClones)
-          while (length(tmp.sharedClones) != 0) {
-            tmp.seedingClones <- get.seedingClones(clonality, tmp.sharedClones, treeBranches, met = met)
-            seedingClones <- c(seedingClones, tmp.seedingClones)
-            if (clonality[which(rownames(clonality) %in% tmp.seedingClones), met] == "clonal") {
-              break
-            } else {
-              tmp.sharedClones <- subset(tmp.sharedClones, !tmp.sharedClones %in% tmp.seedingClones)
-            }
-          }
-          return(seedingClones)
-        }
-      }
-      
-      if (length(seedingClones) > 1) {
-        clonality.corrected <- trees[[pat]]$clonality_out$clonality_table_corrected
-        if (all(clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal") & all(clonality.corrected[which(rownames(clonality.corrected) %in% seedingClones), met] == "clonal")) {
-          print(paste0(pat, ": All seeding clones defined as clonal even after correction of clonality. Check again."))
-          return(NULL)
-        } else {
-          # get pairwise comparison of seeding clones in this region
-          cloneComparisons <- combn(seedingClones, 2, simplify = FALSE)
-          # check if these pairs are on same branch of tree
-          tmp <- sapply(cloneComparisons, function(clones) {
-            f.sameBranch(clones[1], clones[2], treeStructure$structure)
-          })
-          # start with all seeding clones at this region 
-          seedingClones.toCount <- seedingClones
-          # if any clones are on the same branch, remove the child of the pair from seedingClones.toCount
-          if (any(tmp)) {
-            for (x in cloneComparisons) {
-              if (f.sameBranch(x[1], x[2], treeStructure$structure)) {
-                seedingClones.toCount <- seedingClones.toCount[-which(seedingClones.toCount %in% x[which(x != f.findParent(x[1], x[2], treeStructure$structure))])]
-              }
-            }
-          } 
-          ccf.values <- trees[[pat]]$nested_pyclone$ccf_cluster_table[, met]
-          ccf.buffer <- trees[[pat]]$ccf_buffer
-          if (is.null(ccf.buffer)) {
-            ccf.buffer <- ccf.buffer.toUse
-          }
-          # make sure the sum of the remaining seeing clones (parents across branches) sum to > 90 
-          # or that any of the seeding clones are defined as clonal in the met region
-          if (sum(ccf.values[seedingClones.toCount]) > 100 - ccf.buffer | any(clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal")) {
-            return(seedingClones)
-          } else {
-            # if not, identify additional potential seeding clones from shared clones
-            tmp.sharedClones <- subset(sharedClones, !sharedClones %in% seedingClones)
-            while (length(tmp.sharedClones) != 0) {
-              # go through remaining shared clones and add to the set of seeding clones
-              # until either:
-              # total ccf of selected seeding clones reaches 90
-              # some of the newly identified clones are clonal in the met
-              # no more shared clones remain to be tested
-              
-              # get new candidate seeding clones from shared clones that are not yet classified as seeding clones
-              tmp.seedingClones <- get.seedingClones(clonality, tmp.sharedClones, treeBranches, met = met)
-              
-              # for each newly identified clone (x)
-              for (x in tmp.seedingClones) {
-                # and each previously selected seeding clone (y)
-                for (y in seedingClones.toCount) {
-                  # if same branch, keep the one with the higher ccf in the met region and remove the other
-                  if (f.sameBranch(x, y, treeStructure$structure)) {
-                    if (ccf.values[x] - ccf.values[y] > 0) {
-                      seedingClones <- c(seedingClones, x)
-                      seedingClones.toCount <- c(seedingClones.toCount, x)
-                      seedingClones.toCount <- seedingClones.toCount[-which(seedingClones.toCount == y)]    
-                    } else {
-                      next
-                    }
-                  } else {
-                    next
-                  }
-                }
-              }
-              # remove duplicates
-              seedingClones <- unique(seedingClones)
-              seedingClones.toCount <- unique(seedingClones.toCount)
-              # break out of the loop if the total ccf of the selected clones exceeds 90
-              # or if one of the new clones is clonal at this region
-              if (sum(ccf.values[seedingClones.toCount]) > 100 - ccf.buffer | any(clonality[which(rownames(clonality) %in% tmp.seedingClones), met] == "clonal")) {
-                break
-              } else {
-                # remove processed clones from shared clones and continue testing others
-                tmp.sharedClones <- subset(tmp.sharedClones, !tmp.sharedClones %in% tmp.seedingClones)
-              }
-            }
-            return(seedingClones)
-          }
-        }
-      }
-    })
-    
-    if (any(sapply(individualSeedingClones, is.null))) {
-      print(paste0(pat, ": Something is off. Please check"))
-      return(NULL)
-    }
-    
-    names(individualSeedingClones) <- cancer.regions
-    seedingClones <- unique(unlist(individualSeedingClones))
-    
-    seedingRegions <- lapply(seedingClones, function(x) {
-      preinvasive.regions[which(clonality[which(rownames(clonality) == x), preinvasive.regions] != "absent")]
-    })
-    
-    names(seedingRegions) <- seedingClones
-    
-    seedingRegionsDF <- data.frame(Patient = pat, PreinvasiveRegion = preinvasive.regions, Initiating = ifelse(preinvasive.regions %in% unique(unlist(seedingRegions)), TRUE, FALSE), Carcinoma = "", stringsAsFactors = FALSE)
-    
-    seedingRegionsDF$Carcinoma <- sapply(seedingRegionsDF$PreinvasiveRegion, function(reg) {
-      tmp.indx <- grep(reg, seedingRegions)
-      if (length(tmp.indx) == 0) return("")
-      
-      tmp.seeding <- names(seedingRegions[tmp.indx])
-      
-      tmp.out <- sapply(tmp.seeding, function(x) {
-        names(individualSeedingClones[grep(x, individualSeedingClones)])
-      })
-      
-      tmp.out <- paste0(unique(unlist(tmp.out)), collapse = ";")
-      return(tmp.out)
-    })
-    
-    tmp.return <- list(seedingClones = seedingClones, 
+    tmp.return <- list(seedingClones = NA,
                        allTreeClones = treeStructure$allTreeClones,
-                       clonalClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "clonal" & clonality.full$TumourClonality == "clonal")), 
-                       sharedClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality %in% c("subclonal", "clonal"))), 
-                       preinvasiveClones = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality == "absent")), 
-                       tumourClones     = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "absent" & clonality.full$TumourClonality %in% c("subclonal", "clonal"))))
-    
+                       clonalClones  = rownames(clonality[clonality$TumourClonality == "clonal", , drop = FALSE]), 
+                       sharedClones  = NA,
+                       preinvasiveClones = NA,
+                       tumourClones     = rownames(clonality))
     df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
     df$treeClones    <- df$clones %in% tmp.return$allTreeClones
     df$seedingClones <- df$clones %in% tmp.return$seedingClones
@@ -496,14 +258,253 @@ if (save.output) {
     df$sharedClones  <- df$clones %in% tmp.return$sharedClones
     df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
     df$tumourClones     <- df$clones %in% tmp.return$tumourClones
+    return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = NA, seedingRegions = NA, seedingRegionInfo = NA)))
+    }
+  
+  # Cases with no cancer regions
+  if (length(cancer.regions) == 0){
+    print(paste0(pat, ": No tumour clones in the tree, skipping seeding clone estimation."))
+    clonality$PreinvasiveClonality <- get.tumLevel.clonality(clonality, preinvasive.regions)
+    tmp.return <- list(seedingClones = NA,
+                       allTreeClones = treeStructure$allTreeClones,
+                       clonalClones  = rownames(clonality[clonality$PreinvasiveClonality == "clonal", , drop = FALSE]), 
+                       sharedClones  = NA,
+                       preinvasiveClones = rownames(clonality),
+                       tumourClones     = NA)
+    df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
+    df$treeClones    <- df$clones %in% tmp.return$allTreeClones
+    df$seedingClones <- df$clones %in% tmp.return$seedingClones
+    df$clonalClones  <- df$clones %in% tmp.return$clonalClones
+    df$sharedClones  <- df$clones %in% tmp.return$sharedClones
+    df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
+    df$tumourClones     <- df$clones %in% tmp.return$tumourClones
+    return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = NA, seedingRegions = NA, seedingRegionInfo = NA)))
     
-    return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = individualSeedingClones, seedingRegions = seedingRegions, seedingRegionInfo = seedingRegionsDF)))
+  }
+  
+  # Cases with at least one preinvasive and tumour sample, work out seeding clonlity
+  clonality$PreinvasiveClonality <- get.tumLevel.clonality(clonality, preinvasive.regions)
+  clonality$TumourClonality <- get.tumLevel.clonality(clonality, cancer.regions)
+  clonality.full <- clonality
+  ### keep all clones - even non-tree to be able to classify more mutations 
+  # clonality <- subset(clonality, rownames(clonality) %in% treeStructure$allTreeClones)
+  if (nrow(clonality) == 0) {
+    print(paste0(pat, ": No clones left after removing clones not in tree."))
+    return(NULL)
+  }
+  
+  allSharedClones <- intersect(rownames(subset(clonality, clonality$PreinvasiveClonality != "absent")),
+                               rownames(subset(clonality, clonality$TumourClonality != "absent")))
+  
+  # Cases with no shared clones
+  if (length(allSharedClones) == 0) {
+    print(paste0(pat, ": No shared clones."))
+    return(NULL)
+  }
+  
+  # Cases with one shared clone
+  if (length(allSharedClones) == 1) {
+    if (clonality[which(rownames(clonality) == allSharedClones), "PreinvasiveClonality"] == "clonal" & clonality[which(rownames(clonality) == allSharedClones), "TumourClonality"] == "clonal") {
+      print(paste0(pat, ": Only clonal cluster left."))
+      individualSeedingClones <- setNames(rep(allSharedClones, length(cancer.regions)), cancer.regions)
+      seedingRegions <- list(preinvasive.regions)
+      names(seedingRegions) <- allSharedClones
+      
+      seedingRegionsDF <- data.frame(Patient = pat, PreinvasiveRegion = preinvasive.regions, Initiating = ifelse(cancer.regions %in% unique(unlist(seedingRegions)), TRUE, FALSE), Carcinoma = "", stringsAsFactors = FALSE)
+      seedingRegionsDF$Carcinoma <- sapply(seedingRegionsDF$PreinvasiveRegion, function(reg) {
+        tmp.indx <- grep(reg, seedingRegions)
+        if (length(tmp.indx) == 0) return("")
+        
+        tmp.seeding <- names(seedingRegions[tmp.indx])
+        
+        tmp.out <- sapply(tmp.seeding, function(x) {
+          names(individualSeedingClones[grep(x, individualSeedingClones)])
+        })
+        tmp.out <- paste0(unique(unlist(tmp.out)), collapse = ";")
+        return(tmp.out)
+      })
+      
+      tmp.return <- list(seedingClones = allSharedClones,
+                         allTreeClones = treeStructure$allTreeClones,
+                         clonalClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "clonal" & clonality.full$TumourClonality == "clonal")), 
+                         sharedClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality %in% c("subclonal", "clonal"))), 
+                         preinvasiveClones = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality == "absent")), 
+                         tumourClones     = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "absent" & clonality.full$TumourClonality %in% c("subclonal", "clonal"))))
+      df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
+      df$treeClones    <- df$clones %in% tmp.return$allTreeClones
+      df$seedingClones <- df$clones %in% tmp.return$seedingClones
+      df$clonalClones  <- df$clones %in% tmp.return$clonalClones
+      df$sharedClones  <- df$clones %in% tmp.return$sharedClones
+      df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
+      df$tumourClones     <- df$clones %in% tmp.return$tumourClones
+      return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = individualSeedingClones, seedingRegions = seedingRegions, seedingRegionInfo = seedingRegionsDF)))
+    } else {
+      print(paste0(pat, ": Only clone left is not clonal in both primary and met."))
+      return(NULL)
+    }
+  }
+  
+  treeBranches <- strsplit(treeStructure$structure, split = ":")
+  
+  individualSeedingClones <- lapply(cancer.regions, function(met) {
+    sharedClones  <- subset(allSharedClones, allSharedClones %in% rownames(subset(clonality, clonality[, met] != "absent")))
+    seedingClones <- unique(get.seedingClones(clonality, sharedClones, treeBranches, prim = "PreinvasiveClonality", met = met))
+    
+    if (length(seedingClones) == 0) {
+      print(paste0(pat, ": No seeding clones found for region"))
+      return(NULL)
+    }
+    
+    if (length(seedingClones) == 1) {
+      if (clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal") {
+        return(seedingClones)
+      } else {
+        tmp.sharedClones <- subset(sharedClones, !sharedClones %in% seedingClones)
+        while (length(tmp.sharedClones) != 0) {
+          tmp.seedingClones <- get.seedingClones(clonality, tmp.sharedClones, treeBranches, met = met)
+          seedingClones <- c(seedingClones, tmp.seedingClones)
+          if (clonality[which(rownames(clonality) %in% tmp.seedingClones), met] == "clonal") {
+            break
+          } else {
+            tmp.sharedClones <- subset(tmp.sharedClones, !tmp.sharedClones %in% tmp.seedingClones)
+          }
+        }
+        return(seedingClones)
+      }
+    }
+    
+    if (length(seedingClones) > 1) {
+      clonality.corrected <- trees[[pat]]$clonality_out$clonality_table_corrected
+      if (all(clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal") & all(clonality.corrected[which(rownames(clonality.corrected) %in% seedingClones), met] == "clonal")) {
+        print(paste0(pat, ": All seeding clones defined as clonal even after correction of clonality. Check again."))
+        return(NULL)
+      } else {
+        # get pairwise comparison of seeding clones in this region
+        cloneComparisons <- combn(seedingClones, 2, simplify = FALSE)
+        # check if these pairs are on same branch of tree
+        tmp <- sapply(cloneComparisons, function(clones) {
+          f.sameBranch(clones[1], clones[2], treeStructure$structure)
+        })
+        # start with all seeding clones at this region 
+        seedingClones.toCount <- seedingClones
+        # if any clones are on the same branch, remove the child of the pair from seedingClones.toCount
+        if (any(tmp)) {
+          for (x in cloneComparisons) {
+            if (f.sameBranch(x[1], x[2], treeStructure$structure)) {
+              seedingClones.toCount <- seedingClones.toCount[-which(seedingClones.toCount %in% x[which(x != f.findParent(x[1], x[2], treeStructure$structure))])]
+            }
+          }
+        } 
+        ccf.values <- trees[[pat]]$nested_pyclone$ccf_cluster_table[, met]
+        ccf.buffer <- trees[[pat]]$ccf_buffer
+        if (is.null(ccf.buffer)) {
+          ccf.buffer <- ccf.buffer.toUse
+        }
+        # make sure the sum of the remaining seeing clones (parents across branches) sum to > 90 
+        # or that any of the seeding clones are defined as clonal in the met region
+        if (sum(ccf.values[seedingClones.toCount]) > 1 - ccf.buffer | any(clonality[which(rownames(clonality) %in% seedingClones), met] == "clonal")) {
+          return(seedingClones)
+        } else {
+          # if not, identify additional potential seeding clones from shared clones
+          tmp.sharedClones <- subset(sharedClones, !sharedClones %in% seedingClones)
+          while (length(tmp.sharedClones) != 0) {
+            # go through remaining shared clones and add to the set of seeding clones
+            # until either:
+            # total ccf of selected seeding clones reaches 90
+            # some of the newly identified clones are clonal in the met
+            # no more shared clones remain to be tested
+            
+            # get new candidate seeding clones from shared clones that are not yet classified as seeding clones
+            tmp.seedingClones <- get.seedingClones(clonality, tmp.sharedClones, treeBranches, met = met)
+            
+            # for each newly identified clone (x)
+            for (x in tmp.seedingClones) {
+              # and each previously selected seeding clone (y)
+              for (y in seedingClones.toCount) {
+                # if same branch, keep the one with the higher ccf in the met region and remove the other
+                if (f.sameBranch(x, y, treeStructure$structure)) {
+                  if (ccf.values[x] - ccf.values[y] > 0) {
+                    seedingClones <- c(seedingClones, x)
+                    seedingClones.toCount <- c(seedingClones.toCount, x)
+                    seedingClones.toCount <- seedingClones.toCount[-which(seedingClones.toCount == y)]    
+                  } else {
+                    next
+                  }
+                } else {
+                  next
+                }
+              }
+            }
+            # remove duplicates
+            seedingClones <- unique(seedingClones)
+            seedingClones.toCount <- unique(seedingClones.toCount)
+            # break out of the loop if the total ccf of the selected clones exceeds 90
+            # or if one of the new clones is clonal at this region
+            if (sum(ccf.values[seedingClones.toCount]) > 1 - ccf.buffer | any(clonality[which(rownames(clonality) %in% tmp.seedingClones), met] == "clonal")) {
+              break
+            } else {
+              # remove processed clones from shared clones and continue testing others
+              tmp.sharedClones <- subset(tmp.sharedClones, !tmp.sharedClones %in% tmp.seedingClones)
+            }
+          }
+          return(seedingClones)
+        }
+      }
+    }
   })
   
-  names(cloneInfo.list) <- names(trees)
+  if (any(sapply(individualSeedingClones, is.null))) {
+    print(paste0(pat, ": Something is off. Please check"))
+    return(NULL)
+  }
   
-  if (save.output) saveRDS(cloneInfo.list, file = paste0(outputs.folder, date, "_cloneInfo.list.rds"))
+  names(individualSeedingClones) <- cancer.regions
+  seedingClones <- unique(unlist(individualSeedingClones))
   
+  seedingRegions <- lapply(seedingClones, function(x) {
+    preinvasive.regions[which(clonality[which(rownames(clonality) == x), preinvasive.regions] != "absent")]
+  })
+  
+  names(seedingRegions) <- seedingClones
+  
+  seedingRegionsDF <- data.frame(Patient = pat, PreinvasiveRegion = preinvasive.regions, Initiating = ifelse(preinvasive.regions %in% unique(unlist(seedingRegions)), TRUE, FALSE), Carcinoma = "", stringsAsFactors = FALSE)
+  
+  seedingRegionsDF$Carcinoma <- sapply(seedingRegionsDF$PreinvasiveRegion, function(reg) {
+    tmp.indx <- grep(reg, seedingRegions)
+    if (length(tmp.indx) == 0) return("")
+    
+    tmp.seeding <- names(seedingRegions[tmp.indx])
+    
+    tmp.out <- sapply(tmp.seeding, function(x) {
+      names(individualSeedingClones[grep(x, individualSeedingClones)])
+    })
+    
+    tmp.out <- paste0(unique(unlist(tmp.out)), collapse = ";")
+    return(tmp.out)
+  })
+  
+  tmp.return <- list(seedingClones = seedingClones, 
+                     allTreeClones = treeStructure$allTreeClones,
+                     clonalClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "clonal" & clonality.full$TumourClonality == "clonal")), 
+                     sharedClones  = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality %in% c("subclonal", "clonal"))), 
+                     preinvasiveClones = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality %in% c("subclonal", "clonal") & clonality.full$TumourClonality == "absent")), 
+                     tumourClones     = rownames(subset(clonality.full, clonality.full$PreinvasiveClonality == "absent" & clonality.full$TumourClonality %in% c("subclonal", "clonal"))))
+  
+  df <- data.frame(Patient = pat, clones = allPatientClones, stringsAsFactors = FALSE)
+  df$treeClones    <- df$clones %in% tmp.return$allTreeClones
+  df$seedingClones <- df$clones %in% tmp.return$seedingClones
+  df$clonalClones  <- df$clones %in% tmp.return$clonalClones
+  df$sharedClones  <- df$clones %in% tmp.return$sharedClones
+  df$preinvasiveClones <- df$clones %in% tmp.return$preinvasiveClones
+  df$tumourClones     <- df$clones %in% tmp.return$tumourClones
+  
+  return(c(tmp.return, list(df.cloneInfo = df, individualSeedingClones = individualSeedingClones, seedingRegions = seedingRegions, seedingRegionInfo = seedingRegionsDF)))
+})
+
+names(cloneInfo.list) <- names(trees)
+
+if (save.output) saveRDS(cloneInfo.list, file = paste0(outputs.folder, date, "_cloneInfo.list.rds"))
+
 
 #########################################
 ############## Plot trees ###############
@@ -576,15 +577,15 @@ tree_plots <- lapply(tree_plots, function(p) {
 
 wrap_plots(tree_plots, ncol = 6) 
 
-ggsave(paste0(outputs.folder, date, "_forest.png"), width = 19, height = 20, dpi = 300)
+ggsave(paste0(outputs.folder, date, "_forest_wide.png"), width = 19, height = 20, dpi = 300)
 
 # create legend with dummy data
 legend_data <- data.frame(
   x = 1:5,
   y = 1,
-  type = c("Preinvasive unique", "Cancer unique", "Shared", "Seeding clone", "Non-seeding clone"),
+  type = c("Preinvasive unique", "Cancer unique", "Shared", "Initating clone", "Non-initiating clone"),
   fill = c("#D55E00", "#009E73", "#D0DDE2", "white", "white"),
-  stroke = c(1, 1, 1, 2, 1),  # outline width
+  stroke = c(1, 1, 1, 3, 1),  # outline width
   shape = 21
 )
 
@@ -600,6 +601,6 @@ legend_plot <- ggplot(legend_data, aes(x = x, y = y)) +
   ylim(0.8, 1.5) +
   theme(legend.position = "none")
 
-ggsave(paste0(outputs.folder, date, "_legend.png"), width = 9, height = 1, dpi = 300)
+ggsave(paste0(outputs.folder, date, "_legend.png"), width = 12, height = 1, dpi = 300)
 
 
