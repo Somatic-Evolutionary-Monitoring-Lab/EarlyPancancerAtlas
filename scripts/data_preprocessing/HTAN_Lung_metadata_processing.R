@@ -5,12 +5,13 @@ library(readr)
 library(stringr)
 library(openssl)
 
-setwd('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Lung_PreCancer_Atlas')
+#setwd('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Lung_PreCancer_Atlas')
+rcs_path <- "/rcs/project/zz485/rcs-zz485-sem-lab-cold/pancancer_kh/Lung/HTAN/WES/"
 
-fastq_metadata <- read_tsv('HTAN_Lung_PreCancer_fq_Metadata.tsv')
-fastq_seq_dat <- read_tsv('HTAN_Lung_PreCancer_seq_platform_info.tsv', col_names = F)
-biosample_metadata <- read_tsv('HTAN_Lung_PreCancer_Biosample_Metadata.tsv')
-clinical_dat <- read_tsv('HTAN_Lung_PreCancer_case_level_data.tsv')
+fastq_metadata <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_fq_Metadata.tsv'))
+fastq_seq_dat <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_seq_platform_info.tsv'), col_names = F)
+biosample_metadata <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_Biosample_Metadata.tsv'))
+clinical_dat <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_case_level_data.tsv'))
 latest_inventory <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv')
 
 ## Process metadata files
@@ -66,8 +67,29 @@ fastq_biosample_dat <- fastq_biosample_dat %>%
       `Tumor Tissue Type` == "Not Otherwise Specified" ~ NA,
       # Everything else is premalignant/tumour
       TRUE ~ FALSE
-    ),
-    fastq_file = basename(Filename)
+    )
+  ) %>%
+  # filter out case where we don't have enough info to determine sample type
+  filter(!is.na(germline)) %>%
+  mutate(
+    fastq_file = basename(Filename),
+    sample_type = case_when(
+      # Explicit primary tumour calls
+      `Tumor Tissue Type` %in% c("Primary", "Additional Primary") ~ "cancer",
+
+      # Explicit preinvasive calls
+      `Tumor Tissue Type` %in% c(
+        "Atypia - hyperplasia",
+        "Premalignant - in situ",
+        "Premalignant"
+      ) ~ "preinvasive",
+
+      # Normal calls
+      germline == TRUE ~ "normal",
+
+      # Everything else
+      TRUE ~ NA_character_
+    )
   ) %>%
   group_by(`Participant ID`) %>%
   mutate(
@@ -80,6 +102,8 @@ fastq_biosample_dat <- fastq_biosample_dat %>%
   mutate(sample_id = ifelse(germline, paste0("GL", GL_counter), paste0("S", S_counter))) %>%
   ungroup() %>%
   select(-GL_counter, -S_counter)
+
+
 
 # generate unique EPA IDs
 curr_max_epa <- max(as.integer(sub("^EPA(\\d+).*", "\\1", latest_inventory$sample_name)))
@@ -124,7 +148,7 @@ fastq_biosample_dat <-  fastq_biosample_dat %>%
 
 
 # Write out file that contains fastq file level info on samples
-write_delim(fastq_biosample_dat, "HTAN_Lung_fastq_biosample_clinical_info.tsv", delim = '\t')
+write_delim(fastq_biosample_dat, paste0(rcs_path, "20260105_HTAN_Lung_metadata_epa_mapping.tsv"), delim = '\t')
 
 ## Inventory
 # append study information to inventory file
@@ -141,9 +165,9 @@ fastq_seq_dat <- fastq_seq_dat %>%
   left_join(fastq_biosample_dat %>% select(fastq_file, Biospecimen), by = "fastq_file")
 
 fastq_biosample_dat <- fastq_biosample_dat %>%
-  left_join(fastq_seq_dat %>% select(Biospecimen, fq1_path, fq2_path, flowcell, lane), by = "Biospecimen")
+  left_join(fastq_seq_dat %>% select(Biospecimen, fq1_path, fq2_path, flowcell, lane), by = "Biospecimen") %>%
+  mutate(Gender = ifelse(Gender == "Not Reported", "unknown", Gender))
   
-
 study_inventory <- data.frame(sample_name = gsub("_[^_]+$", "", fastq_biosample_dat$EPA),
                               sample_name_hash = fastq_biosample_dat$EPA,
                               gl_sample_name_hash = fastq_biosample_dat$gl_sample_name_hash,
@@ -172,5 +196,6 @@ study_inventory <- data.frame(sample_name = gsub("_[^_]+$", "", fastq_biosample_
 
 latest_inventory <- bind_rows(latest_inventory, study_inventory)
 
-write_delim(latest_inventory, "/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/inventory_check.tsv", "\t")
+write_delim(latest_inventory, "/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv", "\t")
+
 
