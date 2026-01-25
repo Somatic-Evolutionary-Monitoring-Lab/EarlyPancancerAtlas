@@ -1,11 +1,14 @@
 #!/usr/bin/env Rscript
 
+##### this script contains errors in the way I handled the data annotation for
+# this project, have corrected these downstream but keeping this script here 
+# with additional comments inserted as a record. K Honan 20260123. ##### 
+
 library(dplyr)
 library(readr)
 library(stringr)
 library(openssl)
 
-#setwd('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Lung_PreCancer_Atlas')
 rcs_path <- "/rcs/project/zz485/rcs-zz485-sem-lab-cold/pancancer_kh/Lung/HTAN/WES/"
 
 fastq_metadata <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_fq_Metadata.tsv'))
@@ -13,6 +16,7 @@ fastq_seq_dat <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_seq_platform_inf
 biosample_metadata <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_Biosample_Metadata.tsv'))
 clinical_dat <- read_tsv(paste0(rcs_path, 'HTAN_Lung_PreCancer_case_level_data.tsv'))
 latest_inventory <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv')
+
 
 ## Process metadata files
 
@@ -56,7 +60,7 @@ fastq_biosample_dat <- fastq_biosample_dat %>%
       # Explicit normal calls
       `Tumor Tissue Type` %in% c("Normal adjacent", "Normal") ~ TRUE,
       `Biospecimen Type` == "Blood Biospecimen Type" ~ TRUE,
-      # Rescue nos cases if other cols suggest normal tissue
+      # Rescue nos cases if other cols suggest normal tissue -- delete this
       `Tumor Tissue Type` == "Not Otherwise Specified" &
         `Preinvasive Morphology` == "Normal WDA" &
         str_detect(
@@ -103,7 +107,14 @@ fastq_biosample_dat <- fastq_biosample_dat %>%
   ungroup() %>%
   select(-GL_counter, -S_counter)
 
+# **** 23-01-26: decided HTA3_50044_1001588 was too ambiguous to call germline  
+# so removed this and other samples associated with HTA3_50044 from inventory
+# manually after running this script ****
 
+# **** 23-01-26: Made an error here while processing this dataset. Should not
+# have assigned EPA IDs until after I matched up the fq1 and fq2 files to be on
+# the same line. This basically duplicated the number of fq pairs per sample,
+# see script inventory_fix_20260123.R for details/ code to fix this ****
 
 # generate unique EPA IDs
 curr_max_epa <- max(as.integer(sub("^EPA(\\d+).*", "\\1", latest_inventory$sample_name)))
@@ -121,6 +132,7 @@ participants_no_germline <- fastq_biosample_dat %>%
   summarise(has_germline = any(germline == TRUE, na.rm = TRUE)) %>%
   filter(!has_germline)
 
+# exclude all these cases
 exclude_list <- unique(participants_no_germline$`Participant ID`)
 
 fastq_biosample_dat <- fastq_biosample_dat %>%
@@ -148,6 +160,8 @@ fastq_biosample_dat <-  fastq_biosample_dat %>%
 
 
 # Write out file that contains fastq file level info on samples
+# *** 20260123 The below file has now been regenerated to reflect the corrections  
+# made to the inventory for this project i.e., redundant EPA IDs have been removed ***
 write_delim(fastq_biosample_dat, paste0(rcs_path, "20260105_HTAN_Lung_metadata_epa_mapping.tsv"), delim = '\t')
 
 ## Inventory
@@ -196,6 +210,7 @@ study_inventory <- data.frame(sample_name = gsub("_[^_]+$", "", fastq_biosample_
 
 latest_inventory <- bind_rows(latest_inventory, study_inventory)
 
-write_delim(latest_inventory, "/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv", "\t")
+# 20260123 the below file was updated after mistakes in this script were discovered.
+# write_delim(latest_inventory, "/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv", "\t")
 
 
