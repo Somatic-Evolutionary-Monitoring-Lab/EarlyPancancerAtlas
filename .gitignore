@@ -1,3 +1,5 @@
+scripts/data_preprocessing/tmp/
+.Rhistory
 .DS_Store
 /scripts/.Rhistory
 /outputs
