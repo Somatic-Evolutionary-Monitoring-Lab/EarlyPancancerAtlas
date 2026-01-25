@@ -9,7 +9,11 @@
 # Author: Katherine Honan
 # Date: 2025-06-30
 
+# rfs
 setwd("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/")
+
+# rds
+setwd("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas")
 
 ####################################################
 #### Source required functions & load libraries ####
@@ -50,9 +54,13 @@ if( !file.exists(outputs.folder) ) dir.create( outputs.folder )
 #### Get Inputs required for all analyses ####
 ##############################################
 
-# read in data
+# read in data on RFS
 trees <- readRDS("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/_RELEASE/_aggregate/conipher_trees/2025_06_28_cohort_conipher_trees.RDS")
 metadata <- fread("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt")
+
+
+# read in data on RDS
+trees <- readRDS("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/_RELEASE/_aggregate/conipher_trees/2025_06_28_cohort_conipher_trees.RDS")
 
 # source both original (tissue) mets functions and ctdna adapted functions
 source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/mets_functions.R")
