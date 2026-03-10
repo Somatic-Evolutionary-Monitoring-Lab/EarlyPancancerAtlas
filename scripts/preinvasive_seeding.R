@@ -10,7 +10,7 @@
 # Date: 2025-06-30
 
 # rfs
-setwd("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/")
+#setwd("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/")
 
 # rds
 setwd("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas")
@@ -55,17 +55,21 @@ if( !file.exists(outputs.folder) ) dir.create( outputs.folder )
 ##############################################
 
 # read in data on RFS
-trees <- readRDS("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/_RELEASE/_aggregate/conipher_trees/2025_06_28_cohort_conipher_trees.RDS")
-metadata <- fread("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt")
-
+#trees <- readRDS("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/_RELEASE/_aggregate/conipher_trees/2025_06_28_cohort_conipher_trees.RDS")
+#metadata <- fread("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt")
 
 # read in data on RDS
-trees <- readRDS("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/_RELEASE/_aggregate/conipher_trees/2025_06_28_cohort_conipher_trees.RDS")
+trees <- readRDS("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/_RELEASE/release-20260306/_aggregate/conipher_trees/2026_03_06_cohort_conipher_trees.RDS")
+metadata <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt')
 
 # source both original (tissue) mets functions and ctdna adapted functions
-source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/mets_functions.R")
-source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/ctdna_mets_functions.R")
-source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/useful_functions.R")
+#source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/mets_functions.R")
+#source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/ctdna_mets_functions.R")
+#source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/useful_functions.R")
+
+source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/useful_functions/mets_functions.R")
+source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/useful_functions/useful_functions.R")
+
 
 ##########################
 ######## Defaults ########
@@ -92,6 +96,7 @@ cohort_overview <- metadata %>%
   rename(sample_name_hash = EPA)
 
 names(trees) <- sapply(trees, function(x) x$parameters$sampleID)
+
 
 ##############################################################
 ############## Annotate tumour level clonality ###############
