@@ -22,30 +22,33 @@ if [[ -z "${SAMPLE_LIST:-}" || -z "${OUT:-}" ]]; then
   usage
 fi
 
-echo -e "${sample}\t${r1}\t${r2}\t${r1_size}\t${r2_size}\t${flowcell}\t${lane}" > "$OUT"
+echo -e "sample\tr1\tr2\tr1_size\tr2_size\tflowcell\tlane" > "$OUT"
 
-cat $SAMPLE_LIST | while read sample; do 
+while read -r file; do
 
-  r1=$(ls "${FASTQ_DIR}"/"${sample}"* 2>/dev/null | \
-       grep -E '(_R1_|_R1\.|_1\.fastq)' | head -n 1 || true)
+  fullpath="${FASTQ_DIR}/${file}"
 
-  r2=$(ls "${FASTQ_DIR}"/"${sample}"* 2>/dev/null | \
-       grep -E '(_R2_|_R2\.|_2\.fastq)' | head -n 1 || true)
+  if [[ "$file" =~ _1\.f(ast)?q(\.gz)?$ ]]; then
+      r1="$fullpath"
+      r2="${FASTQ_DIR}/$(echo "$file" | sed -E 's/_1(\.f(ast)?q(\.gz)?$)/_2\1/')"
+  elif [[ "$file" =~ _2\.f(ast)?q(\.gz)?$ ]]; then
+      continue   # skip R2 lines, we handle pairs from R1
+  else
+      continue
+  fi
 
-  if [[ -z "$r1" || -z "$r2" ]]; then
-    echo "WARNING: missing FASTQs for sample $sample" >&2
-    continue
+  if [[ ! -f "$r2" ]]; then
+      echo "WARNING: missing mate for $r1" >&2
+      continue
   fi
 
   r1_size=$(stat -c %s "$r1")
   r2_size=$(stat -c %s "$r2")
 
-  # Read first FASTQ header
   header=$(zcat "$r1" | head -n 1)
+  flowcell=$(echo "$header" | cut -d: -f3)
+  lane=$(echo "$header" | cut -d: -f4)
 
-  flowcell=$(echo $header | cut -d: -f3)
-  lane=$(echo $header | cut -d: -f4)
+  echo -e "${file}\t${r1}\t${r2}\t${r1_size}\t${r2_size}\t${flowcell}\t${lane}" >> "$OUT"
 
-  echo -e "${sample}\t${r1}\t${r2}\t${r1_size}\t${r2_size}\t${flowcell}\t${lane}" >> "$OUT" ;
-
-  done
+done < "$SAMPLE_LIST"
