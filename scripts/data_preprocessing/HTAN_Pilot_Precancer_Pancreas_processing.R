@@ -282,7 +282,7 @@ map_file_clinical <- map_file %>%
   select(cols_to_keep)
 
 # write out map file
-write_delim(map_file_clinical, paste0(outputs.folder, date, "_HTAN_Stanford_Colon_metadata_epa_mapping.tsv"), delim = "\t")
+write_delim(map_file_clinical, paste0(outputs.folder, date, "_HTAN_Pilot_Precancer_Pancreatic_metadata_epa_mapping.tsv"), delim = "\t")
 
 #=======================#
 # Add data to inventory #
