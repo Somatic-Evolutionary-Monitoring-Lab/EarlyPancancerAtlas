@@ -44,8 +44,8 @@ if( !file.exists(outputs.folder) ) dir.create( outputs.folder )
 #===========#
 
 cohort_tcra <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/_RELEASE/release-20260306/_aggregate/tcell_extract/cohort_TCellExTRECT.tsv')
-chen_ESCC_metadata <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt')
-clone_info <- readRDS('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/outputs/preinveasive_seeding/20260306/20260306_cloneInfo.list.rds')
+chen_ESCC_metadata <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt')
+clone_info <- readRDS('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/outputs/preinvasive_seeding/20260306/20260306_cloneInfo.list.rds')
 
 source('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/EPA_colour_palletes.R')
 
@@ -80,25 +80,6 @@ overview_plot_df <- cohort_tcra_df %>%
   ungroup() %>%
   mutate(tumour = reorder(tumour, tumour_mean))
 
-ggplot(overview_plot_df,
-       aes(x = tumour,
-           y = TCRA.tcell.fraction,
-           colour = descriptor)) +
-  geom_point(size = 3, alpha = 0.6) +
-  scale_colour_manual(values = c(
-    "preinvasive" = unname(lesion_type_pallete["preinvasive"]),
-    "carcinoma" = unname(lesion_type_pallete["tumour"])
-  )) +
-  theme_classic() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    x = "Tumour",
-    y = "T cell fraction",
-    colour = "Sample type"
-  )
-
 # look at distributions grouped by sample type
 ggplot(cohort_tcra_df, aes(x = descriptor, y = TCRA.tcell.fraction, fill = descriptor)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.6) +
@@ -129,7 +110,6 @@ tumour_vs_preinv_df <- cohort_tcra_df %>%
 
 # stats test between tumour and preinvasive
 wilcox.test(TCRA.tcell.fraction ~ descriptor, data = tumour_vs_preinv_df)
-
 
 #=====================================================================#
 # Analysis 2: T cell fraction in initiating vs non-initiating samples #
@@ -241,8 +221,4 @@ summary(model)
 #==========================================================#
 # Analysis 4: Investigate patterns across different organs #
 #==========================================================#
-
-
-
-
 
