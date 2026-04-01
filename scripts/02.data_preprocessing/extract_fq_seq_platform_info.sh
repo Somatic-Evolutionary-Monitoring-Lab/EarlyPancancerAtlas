@@ -28,11 +28,25 @@ while read -r file; do
 
   fullpath="${FASTQ_DIR}/${file}"
 
-  if [[ "$file" =~ _1\.f(ast)?q(\.gz)?$ ]]; then
+#  if [[ "$file" =~ _1\.f(ast)?q(\.gz)?$ ]]; then
+#      r1="$fullpath"
+#      r2="${FASTQ_DIR}/$(echo "$file" | sed -E 's/_1(\.f(ast)?q(\.gz)?$)/_2\1/')"
+#  elif [[ "$file" =~ _2\.f(ast)?q(\.gz)?$ ]]; then
+#      continue   # skip R2 lines, we handle pairs from R1
+#  else
+#      continue
+#  fi
+
+  if [[ "$file" =~ _R1\.f(ast)?q(\.gz)?$ ]]; then
+      r1="$fullpath"
+      r2="${FASTQ_DIR}/$(echo "$file" | sed -E 's/_R1(\.f(ast)?q(\.gz)?$)/_R2\1/')"
+
+  elif [[ "$file" =~ _1\.f(ast)?q(\.gz)?$ ]]; then
       r1="$fullpath"
       r2="${FASTQ_DIR}/$(echo "$file" | sed -E 's/_1(\.f(ast)?q(\.gz)?$)/_2\1/')"
-  elif [[ "$file" =~ _2\.f(ast)?q(\.gz)?$ ]]; then
-      continue   # skip R2 lines, we handle pairs from R1
+
+  elif [[ "$file" =~ _R2\.f(ast)?q(\.gz)?$ || "$file" =~ _2\.f(ast)?q(\.gz)?$ ]]; then
+      continue
   else
       continue
   fi

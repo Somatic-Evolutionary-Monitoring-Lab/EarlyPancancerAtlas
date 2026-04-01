@@ -2,6 +2,7 @@
 # Author: Katherine Honan
 # Date: 2026-03-13
 # Description: Annotate HTAN Stanford Colon Project Samples
+# Project annotation number: 4
 
 # We want to create two files with this script:
 # 1. map file: biospecimen/sample level info  with one row per biospecimen which has study specific information
@@ -45,10 +46,10 @@ if( !file.exists(outputs.folder) ) dir.create( outputs.folder )
 # Load Data #
 #===========#
 
-biosamples <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Stanford_colon/HTAN_Stanford_colon_Precancer_Biosample_Metadata.tsv")
-fastq_metadata <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Stanford_colon/HTAN_Stanford_colon_Precancer_fq_Metadata.tsv")
-fastq_seq_dat <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Stanford_colon/HTAN_Stanford_colon_Precancer_seq_platform_info.tsv', col_names = T)
-cases <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/data_downloads/HTAN/Stanford_colon/HTAN_Stanford_colon_Precancer_case_level_data.tsv")
+biospecimen_metadata <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/study_metadata/HTAN_Stanford_colon_Precancer_Biosample_Metadata.tsv")
+fastq_metadata <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/study_metadata/HTAN_Stanford_colon_Precancer_fq_Metadata.tsv")
+fastq_seq_dat <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/study_metadata/HTAN_Stanford_colon_Precancer_seq_platform_info.tsv', col_names = T)
+cases <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/study_metadata/HTAN_Stanford_colon_Precancer_case_level_data.tsv")
 latest_inventory <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv')
 map_file_example <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20260123_HTAN_Lung_metadata_EPA_mapping.tsv')
 
@@ -89,6 +90,7 @@ map_file <- biosample_metadata_alt %>%
   mutate(germline = ifelse(`Acquisition Method Type` == "Blood draw", TRUE, FALSE),
          sample_type = case_when(
            germline ~ "normal",
+           #`Tumor Tissue Type` == "Normal" ~ "normal",
            `Tumor Tissue Type` == "Primary" ~ "cancer",
            `Tumor Tissue Type` == "Premalignant" ~ "preinvasive",
            TRUE ~ NA_character_
@@ -107,7 +109,8 @@ map_file <- biosample_metadata_alt %>%
   select(-GL_counter, -S_counter)
 
 # generate unique EPA IDs per biosample
-curr_max_epa <- max(as.integer(sub("^EPA(\\d+).*", "\\1", latest_inventory$sample_name)))
+# curr_max_epa <- max(as.integer(sub("^EPA(\\d+).*", "\\1", latest_inventory$sample_name)))
+curr_max_epa <- 200
 
 map_file <- map_file %>%
   mutate(patient = sprintf("EPA%05d", dense_rank(`Participant ID`) + curr_max_epa)) %>%
@@ -151,6 +154,12 @@ map_file_clinical <- map_file %>%
   ) %>%
   # remove redundant gender col
   select(-c("Gender", "Biospecimen"))
+
+# remove those with NA sample type, these are Normal tissues which we erroneously
+# missed earlier on in the sample type assignment but we dont want to analyse
+# these anyway, blood better for germline control
+map_file_clinical <- map_file_clinical %>%
+  filter(!is.na(sample_type))
 
 # write out map file
 write_delim(map_file_clinical, paste0(outputs.folder, date, "_HTAN_Stanford_Colon_metadata_epa_mapping.tsv"), delim = "\t")

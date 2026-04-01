@@ -2,6 +2,7 @@
 # Author: Katherine Honan
 # Date: 2026-03-14
 # Description: Annotate HTAN Pilot Preinvasive Pancreatic dataset
+# Project annotation number: 5
 
 # We want to create two files with this script:
 # 1. map file: biospecimen/sample level info  with one row per biospecimen which has study specific information
