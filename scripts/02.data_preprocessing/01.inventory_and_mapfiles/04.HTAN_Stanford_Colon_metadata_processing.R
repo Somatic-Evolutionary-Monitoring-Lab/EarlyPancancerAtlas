@@ -87,7 +87,7 @@ clinical_dat_alt <- cases %>%
 # might not be useable - kh723 20260313
 
 map_file <- biosample_metadata_alt %>%
-  mutate(germline = ifelse(`Acquisition Method Type` == "Blood draw", TRUE, FALSE),
+  mutate(germline = ifelse(`Acquisition Method Type` == "Blood draw" , TRUE, FALSE), # 20260416 should have also included `Tumour Tissue Type` == "Normal" as a couple of germlines have been mislabbeled as tumour. these have been removed from the inventory as we already have germlines for these cases and do not need these samples.
          sample_type = case_when(
            germline ~ "normal",
            #`Tumor Tissue Type` == "Normal" ~ "normal",

@@ -135,8 +135,6 @@ write_delim(map_file_clinical, paste0(outputs.folder, date, "_phs002612_Brain_me
 # copy is preserved in case something needs correcting
 write_delim(latest_inventory, paste0(outputs.folder, "epa-project.inventory.latest.pass.bak.tsv"), delim = "\t")
 
-# got to here 31-mar-26 13:41
-
 # remove excluded fastqs and column cleaning
 fastq_seq_dat_alt <- fastq_seq_dat %>%
   mutate(Run = str_split_i(sample, "_", 1),
@@ -147,23 +145,10 @@ fastq_seq_dat_alt <- fastq_seq_dat %>%
          fq2 = basename(r2),
          passing_lanes = 1)
 
-# check that the number of fastqs corresponds 1:1 with the number of unique 
-# flowcell/lane combinations
-lane_count_sanity_check <- fastq_seq_dat_alt %>%
-  group_by(sample_name_hash) %>%
-  summarise(
-    rows = n(),
-    unique_lane_fc = n_distinct(flowcell, lane),
-    flowcells = n_distinct(flowcell),
-    .groups = "drop"
-  ) %>%
-  arrange(desc(unique_lane_fc))
-
-# any unexpected?
-sample <- lane_count_sanity_check[!lane_count_sanity_check$rows == lane_count_sanity_check$unique_lane_fc,]$sample_name_hash
 
 # Generate new inventory
 run_loc <- '/rds/project/rds-LH0AvU65IRI/datasets/EPA/Brain/fastqs/'
+
 inventory_new <- fastq_seq_dat_alt %>%
   # add any remaining columns needed
   mutate(

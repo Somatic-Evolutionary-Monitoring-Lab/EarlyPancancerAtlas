@@ -165,7 +165,7 @@ map_file <- biospecimen_metadata_alt %>%
   mutate(sample_type = case_when(
            germline ~ "normal",
            Run %in% pdac_samples ~ "cancer",
-           Run %in% c(whole_slide, acinar_tissue) ~ "preinvasive",
+           Run %in% c(whole_slide, acinar_tissue) ~ "unknown_histology",
            TRUE ~ "preinvasive"
          )
   )
@@ -205,7 +205,13 @@ map_file <- map_file %>%
   select(-GL_counter, -S_counter)
 
 # generate unique EPA IDs per biosample
-curr_max_epa <- max(as.integer(sub("^EPA(\\d+).*", "\\1", latest_inventory$sample_name)))
+#curr_max_epa <- max(as.integer(sub("^EPA(\\d+).*", "\\1", latest_inventory$sample_name)))
+#min_pancreas_id <- latest_inventory %>%
+#  filter(run_dir == "HTAN_Pilot_Pancreas") %>%
+#  pull(patient)
+#unique(min_pancreas_id)[which.min(as.numeric(sub("EPA", "", unique(min_pancreas_id))))]
+# epa00207 so - 1 
+curr_max_epa <- 206
 
 # generate EPA IDs
 map_file <- map_file %>%
@@ -291,7 +297,7 @@ write_delim(map_file_clinical, paste0(outputs.folder, date, "_HTAN_Pilot_Precanc
 
 # first, write out the inventory unchanged but with .bak so that the last safe
 # copy is preserved in case something needs correcting
-write_delim(latest_inventory, "/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.bak.tsv", delim = "\t")
+write_delim(latest_inventory, "/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/outputs/mapping_and_inventory_files/HTAN_Pilot_Pancreas/20260416/epa-project.inventory.latest.pass.bak.tsv", delim = "\t")
 
 # start with fastq seq info and join with map file columns
 fastq_metadata_alt <- fastq_seq_dat_alt %>%

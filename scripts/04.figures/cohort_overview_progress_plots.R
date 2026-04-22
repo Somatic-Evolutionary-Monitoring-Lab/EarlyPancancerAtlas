@@ -53,10 +53,10 @@ htan_stanford_colon_map <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU
 htan_pancreas_map <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20260314_HTAN_Pilot_Precancer_Pancreatic_metadata_epa_mapping.tsv")
 phs001424_brain_map <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20260327_phs001424_Brain_Brastianos_metadata_epa_mapping.tsv")
 phs001460_brain_map <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20260331_phs001460_Brain_metadata_epa_mapping.tsv")
-phs002612_brain_map <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20260331_phs002612_Brain_metadata_epa_mapping.tsv")
+phs002612_brain_map <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20260401_phs002612_Brain_metadata_epa_mapping.tsv")
 
 # source colour palettes
-source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/EPA_colour_palletes.R")
+source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/04.figures/EPA_colour_palletes.R")
 
 #====================#
 # Data preprocessing #
