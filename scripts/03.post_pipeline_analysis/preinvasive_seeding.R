@@ -9,15 +9,11 @@
 # Author: Katherine Honan
 # Date: 2025-06-30
 
-# rfs
-#setwd("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/")
-
-# rds
 setwd("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas")
 
-####################################################
-#### Source required functions & load libraries ####
-####################################################
+#============================================#
+# Source required functions & load libraries #
+#============================================#
 
 library(fst)
 library(readr)
@@ -31,13 +27,13 @@ library(cowplot)
 library(RColorBrewer) 
 library(patchwork)
 
-#############################################
-#### Make a folder for this analysis run ####
-#############################################
+#=====================================#
+# Make a folder for this analysis run #
+#=====================================#
 
 date <- gsub("-","",Sys.Date())
 
-analysis_name <- 'preinveasive_seeding'
+analysis_name <- 'preinvasive_seeding'
 out_name <- 'outputs'
 out_dir_general <- paste(out_name, analysis_name, sep='/')
 if( !file.exists(out_dir_general) ) dir.create( out_dir_general )
@@ -50,57 +46,39 @@ outputs.folder <- paste0( out_dir_general, "/", date, "/" )
 if( !file.exists(outputs.folder) ) dir.create( outputs.folder )
 
 
-##############################################
-#### Get Inputs required for all analyses ####
-##############################################
-
-# read in data on RFS
-#trees <- readRDS("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/_RELEASE/_aggregate/conipher_trees/2025_06_28_cohort_conipher_trees.RDS")
-#metadata <- fread("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt")
+#======================================#
+# Get Inputs required for all analyses #
+#======================================#
 
 # read in data on RDS
-trees <- readRDS("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/_RELEASE/release-20260306/_aggregate/conipher_trees/2026_03_06_cohort_conipher_trees.RDS")
-metadata <- read_tsv('/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt')
+trees <- readRDS("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/_RELEASE/release-20260306/_aggregate/conipher_trees/2026_03_06_cohort_conipher_trees.RDS")
+inventory <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/epa-project/inventory/epa-project.inventory.latest.pass.tsv")
+metadata <- read_tsv("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/inputs/map_files/20250514_chen_2017_ESCC_metadata_EPA_mapping.txt")
 
 # source both original (tissue) mets functions and ctdna adapted functions
-#source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/mets_functions.R")
-#source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/ctdna_mets_functions.R")
-#source("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/personalis_ctDNA_mets_analysis/scripts/useful_functions.R")
+source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/00.useful_functions/mets_functions.R")
+source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/00.useful_functions/useful_functions.R")
 
-source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/useful_functions/mets_functions.R")
-source("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas/scripts/useful_functions/useful_functions.R")
-
-
-##########################
-######## Defaults ########
-##########################
+#==========#
+# Defaults #
+#==========#
 
 use.original.clonality <- TRUE
 ccf.buffer.toUse <- 0.1
 save.output <- TRUE
 
-##################################################
-######### EPA ids & data pre-processing ##########
-##################################################
+#===============================#
+# EPA ids & data pre-processing #
+#===============================#
 
-cohort_overview <- metadata %>%
-  mutate(
-    sample_type = case_when(
-      grepl("dysplasia", descriptor, ignore.case = TRUE) ~ "preinvasive",
-      grepl("carcinoma", descriptor, ignore.case = TRUE) ~ "cancer",
-      grepl("metastasis_lymphnode", descriptor, ignore.case = TRUE) ~ "cancer",
-      descriptor %in% c("germline", "normal_tissue") ~ "normal",
-      TRUE ~ NA_character_),
-    sample = sub("^(([^_]+)_([^_]+)).*$", "\\1", EPA)
-    ) %>%
-  rename(sample_name_hash = EPA)
+cohort_overview <- inventory %>%
+  filter(!sample_type_simple %in% c("unknown_histology", "cancer_met"))
 
 names(trees) <- sapply(trees, function(x) x$parameters$sampleID)
 
-
-##############################################################
-############## Annotate tumour level clonality ###############
-##############################################################
+#=================================#
+# Annotate tumour level clonality #
+#=================================#
 
 clonalities <- lapply(trees, function(trees) {
   if (use.original.clonality) {
@@ -110,12 +88,11 @@ clonalities <- lapply(trees, function(trees) {
   }
 })
 
-
 clonalities_updated <- lapply(names(clonalities), function(name) {
   clonality_pat <- clonalities[[name]]
   regions <- colnames(clonality_pat)
   # check if there are tumour regions in the tree
-  cancer_regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "cancer") %>% pull(sample_name_hash))
+  cancer_regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "cancer") %>% pull(sample_name_hash))
   if (length(cancer_regions) == 0){
     print(paste0(name, " has no tumour regions in the tree"))
   } else {
@@ -123,7 +100,7 @@ clonalities_updated <- lapply(names(clonalities), function(name) {
     clonality_pat$primary_clonality <- get.tumLevel.clonality(clonality_pat, cancer_regions)
   }
   # check if there are preinvasive regions in the tree
-  preinvasive_regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "preinvasive") %>% pull(sample_name_hash))
+  preinvasive_regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "preinvasive") %>% pull(sample_name_hash))
   if (length(preinvasive_regions) == 0){
     print(paste0(name, " has no pre-invasive regions in the tree"))
   } else {
@@ -136,9 +113,10 @@ clonalities_updated <- lapply(names(clonalities), function(name) {
 names(clonalities_updated) <- names(clonalities)
 
 
-############################################################
-############## Determining seeding clonality ###############
-############################################################
+
+#===============================#
+# Determining seeding clonality #
+#===============================#
 
 seedingClonality <- lapply(trees, function(fullTreeOutput) {
   
@@ -151,8 +129,8 @@ seedingClonality <- lapply(trees, function(fullTreeOutput) {
   }
   
   regions <- colnames(clonality)
-  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "preinvasive") %>% pull(sample_name_hash))
-  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "cancer") %>% pull(sample_name_hash))
+  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "preinvasive") %>% pull(sample_name_hash))
+  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "cancer") %>% pull(sample_name_hash))
   
   if (length(preinvasive.regions) == 0 | length(cancer.regions) == 0){
     print(paste0("Either no preinvaseive or cancer samples availible for clonality calculations"))
@@ -190,8 +168,8 @@ seedingPhyletic <- lapply(trees, function(fullTreeOutput) {
   print(pat)
   
   regions <- colnames(clonality)
-  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "preinvasive") %>% pull(sample_name_hash))
-  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "cancer") %>% pull(sample_name_hash))
+  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "preinvasive") %>% pull(sample_name_hash))
+  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "cancer") %>% pull(sample_name_hash))
   
   if (length(preinvasive.regions) == 0 | length(cancer.regions) == 0){
     print(paste0("Either no preinvaseive or cancer samples availible for clonality calculations"))
@@ -234,9 +212,9 @@ if (save.output) {
   saveRDS(seeding_table, file = paste0(outputs.folder, date, "_seeding_clonality.rds"))
 }
 
-##########################################################################################
-############## Work out which preinvasive clones seeded the primary tumour ###############
-##########################################################################################
+#=============================================================#
+# Work out which preinvasive clones seeded the primary tumour #
+#=============================================================#
 
 cloneInfo.list <- lapply(names(trees), function(pat) {
   print(pat)
@@ -251,8 +229,11 @@ cloneInfo.list <- lapply(names(trees), function(pat) {
   
   allPatientClones <- rownames(clonality)
   regions <- colnames(clonality)
-  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "preinvasive") %>% pull(sample_name_hash))
-  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type == "cancer") %>% pull(sample_name_hash))
+  preinvasive.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "preinvasive") %>% pull(sample_name_hash))
+  cancer.regions <- as.character(cohort_overview %>% filter(sample_name_hash %in% regions, sample_type_simple == "cancer") %>% pull(sample_name_hash))
+  
+  # make sure we dont include any info from extra samples we might occasionally have (eg ln mets)
+  clonality <- clonality[, regions %in% c(preinvasive.regions, cancer.regions, "PreinvasiveClonality", "TumourClonality")]
   
   # Cases with no preinvasive regions
   if (length(preinvasive.regions) == 0) {
@@ -480,9 +461,9 @@ cloneInfo.list <- lapply(names(trees), function(pat) {
   
   names(seedingRegions) <- seedingClones
   
-  seedingRegionsDF <- data.frame(Patient = pat, PreinvasiveRegion = preinvasive.regions, Initiating = ifelse(preinvasive.regions %in% unique(unlist(seedingRegions)), TRUE, FALSE), Carcinoma = "", stringsAsFactors = FALSE)
+  seedingRegionsDF <- data.frame(Patient = pat, PreinvasiveRegion = preinvasive.regions, Initiating = ifelse(preinvasive.regions %in% unique(unlist(seedingRegions)), TRUE, FALSE), CancerRegion = "", stringsAsFactors = FALSE)
   
-  seedingRegionsDF$Carcinoma <- sapply(seedingRegionsDF$PreinvasiveRegion, function(reg) {
+  seedingRegionsDF$CancerRegion <- sapply(seedingRegionsDF$PreinvasiveRegion, function(reg) {
     tmp.indx <- grep(reg, seedingRegions)
     if (length(tmp.indx) == 0) return("")
     
@@ -519,28 +500,90 @@ names(cloneInfo.list) <- names(trees)
 if (save.output) saveRDS(cloneInfo.list, file = paste0(outputs.folder, date, "_cloneInfo.list.rds"))
 
 
-#########################################
-############## Plot trees ###############
-#########################################
+#============#
+# Plot trees #
+#============#
 
 tree_plots <- list()
+
 # Loop through all tumour IDs in 'trees'
 for (tumour_id in names(trees)) {
   print(tumour_id)
+
+  # cases with only preinvasive or only tumour clones left
+  clone_df <- cloneInfo.list[[tumour_id]]$df.cloneInfo 
   
-  # Plot for those where pre-invasive samples weren't included on tree
-  if (is.null(cloneInfo.list[[tumour_id]])) {
+  # remove any clone rows that arent in the tree OR that are only in the metastatic ln sample
+  tree_clones_df <- clone_df %>%
+    filter(
+      treeClones,
+      if_any(
+        c(seedingClones, clonalClones, sharedClones, preinvasiveClones, tumourClones),
+        ~ . == TRUE
+      )
+    )
+  
+  tree_type <- case_when(
+    sum(tree_clones_df$sharedClones) == 0 && any(tree_clones_df$preinvasiveClones) ~ "preinvasive-only",
+    sum(tree_clones_df$sharedClones) == 0 && any(tree_clones_df$tumourClones) ~ "tumour-only",
+    any(tree_clones_df$sharedClones) ~ "mixed", 
+    TRUE ~ NA
+  )
+
+  # plot the trees, accounting for cases which wont have seeding clones
+  if (tree_type == "mixed"){
     tree <- trees[[tumour_id]]$graph_pyclone$default_tree
     tree_clones <- unique(c(tree[, 1], tree[, 2]))
+    # if there are extra tree clones that arent in the df (e.g., met clones that we wish to ignore)
+    # prune tree so we dont plot these
+    clones_to_prune <- tree_clones[!tree_clones %in% tree_clones_df$clones]
+    if (length(clones_to_prune) > 0){
+      tree <- tree[
+        !(tree[, "last_ancestor"] %in% clones_to_prune |
+            tree[, "terminal_node"] %in% clones_to_prune),
+      ]
+    }
+    
     trunk <- trees[[tumour_id]]$graph_pyclone$trunk
     edgelength <- trees[[tumour_id]]$graph_pyclone$edgelength
+    seedingCluster <- cloneInfo.list[[tumour_id]]$seedingClones
+    
+    # Color assignment
+    preinvasive_unique <- cloneInfo.list[[tumour_id]]$preinvasiveClones[cloneInfo.list[[tumour_id]]$preinvasiveClones %in% tree_clones_df$clones]
+    cancer_unique <- cloneInfo.list[[tumour_id]]$tumourClones[cloneInfo.list[[tumour_id]]$tumourClones %in% tree_clones_df$clones]
+    shared_nodes <- cloneInfo.list[[tumour_id]]$sharedClones[cloneInfo.list[[tumour_id]]$sharedClones %in% tree_clones_df$clones]
 
+    node_colors <- c(setNames(rep("#D55E00", length(preinvasive_unique)), preinvasive_unique),
+                     setNames(rep("#009E73", length(cancer_unique)), cancer_unique),
+                     setNames(rep("#D0DDE2", length(shared_nodes)), shared_nodes))
+    
+    # Create the plot
+    p <- plottingTxTree(
+      tree, trunk, edgelength,
+      seedingCluster = seedingCluster,
+      color.mapping = "perNode",
+      col.palette = node_colors,
+      tumorID = tumour_id,
+      add.title = TRUE,
+      node.size = 7,
+    )
+    # Append to list
+    tree_plots[[tumour_id]] <- p
+    
+  } else if (tree_type != "mixed") {
+    
+    colour_use = ifelse(tree_type == "preinvasive-only", "#D55E00", "#009E73")
+    tree <- trees[[tumour_id]]$graph_pyclone$default_tree
+    #tree_clones <- unique(c(tree[, 1], tree[, 2]))
+    trunk <- trees[[tumour_id]]$graph_pyclone$trunk
+    edgelength <- trees[[tumour_id]]$graph_pyclone$edgelength
+    
     # Create the plot
     p <- plottingTxTree(
       tree, trunk, edgelength,
       seedingCluster = NA,
       color.mapping = "single", 
-      col.palette = c("#009E73"),
+      col.palette = colour_use,
       tumorID = tumour_id,
       add.title = TRUE,
       node.size = 7
@@ -549,40 +592,10 @@ for (tumour_id in names(trees)) {
     # Append to list
     tree_plots[[tumour_id]] <- p
     
-    } else {
-      
-      tree <- trees[[tumour_id]]$graph_pyclone$default_tree
-      tree_clones <- unique(c(tree[, 1], tree[, 2]))
-      trunk <- trees[[tumour_id]]$graph_pyclone$trunk
-      edgelength <- trees[[tumour_id]]$graph_pyclone$edgelength
-      seedingCluster <- cloneInfo.list[[tumour_id]]$seedingClones
-    
-      # Color assignment
-      preinvasive_unique <- cloneInfo.list[[tumour_id]]$preinvasiveClones[cloneInfo.list[[tumour_id]]$preinvasiveClones %in% tree_clones]
-      cancer_unique <- cloneInfo.list[[tumour_id]]$tumourClones[cloneInfo.list[[tumour_id]]$tumourClones %in% tree_clones]
-      shared_nodes <- cloneInfo.list[[tumour_id]]$sharedClones[cloneInfo.list[[tumour_id]]$sharedClones %in% tree_clones]
-    
-      node_colors <- c(setNames(rep("#D55E00", length(preinvasive_unique)), preinvasive_unique),
-                       setNames(rep("#009E73", length(cancer_unique)), cancer_unique),
-                       setNames(rep("#D0DDE2", length(shared_nodes)), shared_nodes))
-    
-      # Create the plot
-      p <- plottingTxTree(
-        tree, trunk, edgelength,
-        seedingCluster = seedingCluster,
-        color.mapping = "perNode",
-        col.palette = node_colors,
-        tumorID = tumour_id,
-        add.title = TRUE,
-        node.size = 7
-        )
-    
-      # Append to list
-      tree_plots[[tumour_id]] <- p
   }
 }
 
-
+# add margins
 tree_plots <- lapply(tree_plots, function(p) {
   p + theme(plot.margin = margin(t = 10, r = 10, b = 10, l = 10),
             plot.title = element_text(size = 20, hjust = 0.5, face = "bold") )
@@ -590,7 +603,7 @@ tree_plots <- lapply(tree_plots, function(p) {
 
 wrap_plots(tree_plots, ncol = 6) 
 
-ggsave(paste0(outputs.folder, date, "_forest_wide.png"), width = 19, height = 20, dpi = 300)
+ggsave(paste0(outputs.folder, date, "_forest_wide.png"), width = 19, height = 24, dpi = 300)
 
 # create legend with dummy data
 legend_data <- data.frame(

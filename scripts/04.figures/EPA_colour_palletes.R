@@ -1,6 +1,6 @@
 # Early Pancancer Atlas Colours & Themes
 
-lesion_type_pallete <- c(
+lesion_type_palette <- c(
   "germline" = "grey60", 
   "preinvasive" = "#D55E00", 
   "tumour" = "#009E73"
@@ -39,7 +39,7 @@ seeding_pattern_colours <- c("monoclonal monophyletic" = "#00A087",
                              "polyclonal polyphyletic" = "#F39B7F")
 
 
-t_cell_infiltration_pallete <- c(
+t_cell_infiltration_palette <- c(
   high = "#D73027",
   low = "#4575B4",
   present = "#984EA3",
