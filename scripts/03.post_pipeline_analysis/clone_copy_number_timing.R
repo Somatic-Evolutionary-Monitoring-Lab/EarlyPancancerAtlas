@@ -23,9 +23,10 @@ library(stringr)
 library(data.table) 
 library(dplyr) 
 library(ggplot2) 
+library(rstatix)
+library(ggpubr)
 library(cowplot)
 library(RColorBrewer) 
-library(patchwork)
 
 #=====================================#
 # Make a folder for this analysis run #
@@ -220,7 +221,7 @@ clone_timing_categories_df <- bind_rows(clone_timing_categories)
 
 # per-segment change and total number of interval events
 # Example patient:
-pat = "EPA00015_2"
+pat = "EPA00020_1"
 tree <- trees[[pat]]$graph_pyclone$default_tree
 trunk <- trees[[pat]]$graph_pyclone$trunk
 seeding <- clone_info[[pat]]$seedingClones
@@ -288,7 +289,10 @@ events_along_tree_edge <- lapply(names(cn_change_to_ancestor_list), function(pat
     edge_df = tree_df, 
     alpaca_tum_out = cn_change
     ) 
+  # add patient tumour id
   edge_events[, patient_tumour := pat]
+  # add back parent
+  edge_events[tree_df, parent := i.parent_clone, on = .(clone)]
   
   # pivot allele-specific metrics wider
   edge_events_wide <- dcast(
@@ -323,44 +327,40 @@ events_along_tree_edge <- lapply(names(cn_change_to_ancestor_list), function(pat
     by = c("patient_tumour", "clone")
   )
 })
+
 events_along_tree_edge_df <- bind_rows(events_along_tree_edge)
 
 # join with clone timing df
-clone_timing_events <- events_along_tree_edge_df %>%
-    left_join(clone_timing_categories_df, by = c("patient_tumour", "clone"))
-    
+clone_timing_events <- events_along_tree_edge_df %>% 
+  left_join(clone_timing_categories_df, by = c("patient_tumour", "clone"))
 
-# Figure 1. Box plot comparing the number of SCNAs in seeding versus non-initiating primary clones
-# y axis = num events, 
-# x axis = sample type (initiating clone vs on initiating clone)
-# 3 panels, one for all events, one for gains, one for losses
-# wilcoxon test
+# Figure 1a. Box plot comparing the number of SCNAs in seeding versus non-initiating primary clones
 
 # if multiple seeding clones along a branch -> count only top level ancestral clone?
 
 # Collapse timing categories
 plot_1_df <- clone_timing_events %>%
   filter(timing_category %in% c("Preinvasive private", "Shared", "Initiating")) %>%
-  mutate(clone_class = ifelse(timing_category == "Initiating", "Initiating", "Non-initiating"))
+  mutate(clone_category = ifelse(timing_category == "Initiating", "Initiating", "Non-initiating"))
 
 # Create long-format table
 plot_1_long <- bind_rows(
   plot_1_df %>%
-    transmute(patient_tumour, clone, clone_class, event_type = "All events", value = total_interval_events_bin),
+    transmute(patient_tumour, clone, clone_category, event_type = "All events", value = total_interval_events_bin),
   plot_1_df %>%
-    transmute(patient_tumour, clone, clone_class, event_type = "Gains", value = total_interval_gains_bin),
-  plot_1_df %>% transmute(patient_tumour, clone, clone_class, event_type = "Losses", value = total_interval_losses_bin)
+    transmute(patient_tumour, clone, clone_category, event_type = "Gains", value = total_interval_gains_bin),
+  plot_1_df %>% transmute(patient_tumour, clone, clone_category, event_type = "Losses", value = total_interval_losses_bin)
   ) %>%
   mutate(event_type = factor(event_type, levels = c("All events", "Gains", "Losses")),
-         clone_class = factor(clone_class, levels = c("Non-initiating", "Initiating")))
+         clone_category = factor(clone_category, levels = c("Non-initiating", "Initiating")))
 
 # Wilcoxon p-values
 pvals <- plot_1_long %>%
   group_by(event_type) %>%
   summarise(
     p = wilcox.test(
-      value[clone_class == "Non-initiating"],
-      value[clone_class == "Initiating"]
+      value[clone_category == "Non-initiating"],
+      value[clone_category == "Initiating"]
     )$p.value
   ) %>%
   mutate(
@@ -368,7 +368,7 @@ pvals <- plot_1_long %>%
   )
 
 # Plot
-ggplot(plot_1_long, aes(x = clone_class, y = value, fill = clone_class)) +
+ggplot(plot_1_long, aes(x = clone_category, y = value, fill = clone_category)) +
   geom_boxplot(width = 0.6, outlier.shape = NA, alpha = 0.7) +
   geom_jitter(width = 0.2, size = 1, alpha = 0.6) +
   facet_wrap(~event_type, scales = "free_y") +
@@ -380,7 +380,7 @@ ggplot(plot_1_long, aes(x = clone_class, y = value, fill = clone_class)) +
     size = 4
     ) +
   scale_fill_manual(values = initiating_clone_colours) +
-  labs(x = "Clone class", y = "No. SCNAs") +
+  labs(x = "Clone Category", y = "Num. SCNAs") +
   theme_classic() +
   theme(
     legend.position = "right",
@@ -393,9 +393,73 @@ ggplot(plot_1_long, aes(x = clone_class, y = value, fill = clone_class)) +
   )
 ggsave(paste0(outputs.folder, date, "_init_vs_non_init_clone_events.png"), width = 9, height = 7)
 
-# Figure 2. Fraction of seeding (purple) and non-seeding (green) clones with 
-# gain (top) or loss (bottom) at each genomic locus ()
-# https://www.nature.com/articles/s41586-025-09398-w/figures/13
+
+
+# Figure 1b. Box plot comparing the number of SCNAs all timing categories
+
+# Set timing category order
+timing_levels <- unique(clone_timing_events$timing_category)
+
+# Prepare plotting df
+plot_2_df <- clone_timing_events %>%
+  filter(timing_category %in% timing_levels) %>%
+  mutate(
+    timing_category = factor(
+      timing_category,
+      levels = timing_levels
+    )
+  )
+
+# Long format
+plot_2_long <- bind_rows(
+  plot_2_df %>%
+    transmute(patient_tumour, clone, timing_category, event_type = "All events", value = total_interval_events_bin ),
+  plot_2_df %>%
+    transmute(patient_tumour, clone, timing_category, event_type = "Gains", value = total_interval_gains_bin),
+  plot_2_df %>%
+    transmute(patient_tumour, clone, timing_category, event_type = "Losses", value = total_interval_losses_bin)
+  ) %>%
+  mutate(event_type = factor(event_type,levels = c("All events", "Gains", "Losses")))
+
+pairwise_tests <- plot_2_long %>%
+  group_by(event_type) %>%
+  pairwise_wilcox_test(value ~ timing_category, p.adjust.method = "BH")
+
+ggplot(plot_2_long, aes(x = timing_category, y = value, fill = timing_category)) +
+  geom_boxplot(width = 0.6, outlier.shape = NA, alpha = 0.7) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.6) +
+  facet_wrap(~event_type, scales = "free_y") +
+  labs(x = "Clone timing category", y = "Num. SCNAs") +
+  theme_classic() +
+  theme(
+    legend.position = "right",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 12),
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    )
+  )
+
+# Figure 2. compute proportion of genome impacted by gains and losses for seeding 
+# vs non seeding clones 
+
+# plot example: https://www.nature.com/articles/s41586-025-09398-w/figures/13
+
+# Make consistant segmentation
+
+
+
+
+
+
+
+# Figure 2 Classification of tumours based on their initiation clone type
+
+# 1. MRCA seeding
+# 2. MRCA and subclones seed
+# 2. only subclone seeding, no non-seeding paths
+# 3. only subclone seeding, som e non-seeding paths
 
 
 # 2. Compute proportion of genome altered relative to parent in each clone 
