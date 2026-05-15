@@ -9,11 +9,11 @@
 # Author: Katherine Honan
 # Date: 2025-05-30
 
-setwd("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/")
+setwd("/home/kh723/rds/rds-early-cancer_ev2-LH0AvU65IRI/EarlyPancancerAtlas")
 
-####################################################
-#### Source required functions & load libraries ####
-####################################################
+#============================================#
+# Source required functions & load libraries #
+#============================================#
 
 library(readr)
 library(tidyr)
@@ -24,9 +24,9 @@ library(cowplot)
 library(data.table)
 library(fst)
 
-#############################################
-#### Make a folder for this analysis run ####
-#############################################
+#=====================================#
+# Make a folder for this analysis run #
+#=====================================#
 
 date <- gsub("-","",Sys.Date())
 
@@ -43,9 +43,9 @@ outputs.folder <- paste0( out_dir_general, "/", date, "/" )
 if( !file.exists(outputs.folder) ) dir.create( outputs.folder )
 
 
-##############################################
-#### Get Inputs required for all analyses ####
-##############################################
+#======================================#
+# Get Inputs required for all analyses #
+#======================================#
 
 # read in full cohort data
 cohort <- read_tsv("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/outputs/cohort_metadata/20250612/full_cohort_data.tsv")
@@ -56,9 +56,9 @@ scna_ith <- read_tsv("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-M
 wgd <- read_tsv("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/inputs/_RELEASE/_aggregate/pgddetect/20250628_cohort_GDs_per_tumour.tsv")
 seeding <- readRDS("/Volumes/RFS/rfs-kh_rfs-rDsHEAv2WP0/Somatic-Evolutionary-Monitoring-Lab/EarlyPancancerAtlas/outputs/preinveasive_seeding/20250702/20250702_seeding_clonality.rds")
 
-##################################
-#### Format data for plotting ####
-##################################
+#=================#
+# Formatting data #
+#=================#
 
 patient_tumours <- mutations %>%
   filter(tree_cluster) %>%
@@ -79,9 +79,9 @@ cohort <- cohort %>%
   ungroup() %>%
   left_join(seeding %>% select(patient_tumour, seeding_pattern), by = "patient_tumour")
 
-##################################
-######## Annotate mutations ######
-##################################
+#====================#
+# Annotate mutations #
+#====================#
 
 # get all samples that contributed to tree building
 tree_samples <- unique(unlist(lapply(trees, function(x) colnames(x$clonality_table))))
@@ -154,18 +154,18 @@ mutation_proportions <- mutations_labelled %>%
   pivot_wider(names_from = category, values_from = proportion, values_fill = 0)
 
 
-####################################
-######## Get copy number info ######
-####################################
+#======================#
+# Get copy number info #
+#======================#
 
 scna_metrics <- scna_ith %>%
   filter(patient_tumour %in% patient_tumours$patient_tumour) %>%
   select(patient_tumour, frac_abberant_genom_subcl) %>%
   mutate(frac_abberant_genom_clonal = 1 - frac_abberant_genom_subcl)
 
-####################################
-########### Get WGD info ###########
-####################################
+#==============#
+# Get WGD info #
+#==============#
 
 wgd_metrics <- wgd %>%
   filter(tumour_id %in% patient_tumours$patient_tumour) %>%

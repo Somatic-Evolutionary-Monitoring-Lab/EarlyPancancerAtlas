@@ -12,10 +12,17 @@ sample_type_colors <- c("Tumour" = "#009E73",
 clone_type_colours <- c("Tumour unique" = "#009E73", 
                         "Preinvasive unique" = "#D55E00",
                         "Shared" = "#D0DDE2")
-  
-initiating_clone_colours <- c(
+
+
+clone_category_colours <- c(
   "Non-initiating" = "#D55E00",
-  "Initiating" = "#8DA0CB"
+  "Initiating" = "#8DA0CB",
+  "MRCA" = "#C9A227",
+  "MRCA Initiating" = "#66A61E",
+  "MRCA Non-initiating" = "#1F78B4",
+  "Preinvasive private" = "#6A3D9A",
+  "Tumour private" = "#E31A1C",
+  "Shared" = "#D0DDE2"
 )
 
 stage_colours <- c("IA" = "#f5f5f5", 
