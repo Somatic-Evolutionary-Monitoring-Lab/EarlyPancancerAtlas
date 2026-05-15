@@ -16,7 +16,7 @@ clone_type_colours <- c("Tumour unique" = "#009E73",
 
 clone_category_colours <- c(
   "Non-initiating" = "#D55E00",
-  "Initiating" = "#8DA0CB",
+  "Subclonal initiating" = "#8DA0CB",
   "MRCA" = "#C9A227",
   "MRCA Initiating" = "#66A61E",
   "MRCA Non-initiating" = "#1F78B4",

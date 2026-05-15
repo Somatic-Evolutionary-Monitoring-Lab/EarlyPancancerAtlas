@@ -744,7 +744,7 @@ all_segments <- data.frame(
   end = end(common_gr)
 )
 
-full_matrix <- crossing(
+full_matrix <- tidyr::crossing(
   all_clones,
   all_segments
 )
@@ -755,7 +755,7 @@ full_matrix <- full_matrix %>%
     by = c(
       "patient_tumour",
       "clone",
-      "timing_category",
+      #"timing_category",
       "segment_id",
       "chr",
       "start",
@@ -959,7 +959,7 @@ all_clones <- cn_events %>%
     initiation_status
   )
 
-full_matrix <- crossing(
+full_matrix <- tidyr::crossing(
   all_clones,
   bin_id = bins_df$bin_id
 )
